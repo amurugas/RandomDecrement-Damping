@@ -1,273 +1,151 @@
-Summary
-If the free-decay response (FDR) of a Single Degree-of-Freedom (SDOF) system is not directly available, it is possible to use ambient vibrations data yo estimate the modal damping ratio. Here, the Random Decrement Technique (RDT) [1], as well as the Natural Excitation Technique (NExT) [2], are used. First, the response of a SDOF to white noise is simulated in the time domain using [3]. Then the IRF is computed using the RDT or NExT. Finally, and an exponential decay is fitted to the envelop of the IRF to obtain the modal damping ratio.
+# Random Decrement Damping Estimation
 
-Content
-The present submission contains:
+This repository estimates building modal frequencies and damping ratios from ambient vibration data recorded by accelerometers in a building. The source data consists of multi-day acceleration records from sensors distributed through the building height. The current workflow focuses on output-only modal identification under wind excitation, using Power Spectral Density (PSD), Cross-Spectral Density (CSD), Frequency Domain Decomposition (FDD), and later Random Decrement Technique (RDT) or Natural Excitation Technique (NeXT) for damping estimation.
 
-a function RDT.,m that implements to Random Decrement Technique (RDT)
-a function NExT that implements the Natural Excitation Technique (NExT)
-a function expoFit that determine the modal damping ratio by fitting an exponential decay to the envelope of the IRF.
-a function CentDiff used to simulate the response to a white noise load of a SDOF in the time domain.
-An example file Example.m
-Any question, comment or suggestion is welcomed.
+## Data
 
-References
-[1] Ibrahim, S. R. (1977). Random decrement technique for modal identification of structures. Journal of Spacecraft and Rockets, 14(11), 696-700.
+Raw accelerometer files are stored by date:
 
-[2] James III, O. H., & Came, T. G. (1995). The natural excitation technique (next) for modal parameter extraction from operating structures.
+```text
+data/
+├─ 2023-03-01/
+│  └─ Accelerometer/
+└─ 2025-12-27/
+   └─ Accelerometer/
+```
 
-[3] http://www.mathworks.com/matlabcentral/fileexchange/53854-harmonic-excitation-of-a-sdof
+Each text file contains metadata followed by two columns:
 
+```text
+Station_code    GMS05
+Sampling_rate   100.0000
+Start_date      DD.MM.YYYY
+Start_time      HH:MM:SS.sss
+Time:sec        21S2X,cm/s2
+```
 
-## RDT.m 
+Acceleration is read in `cm/s²` and converted to `m/s²`.
 
-function [R,t] = RDT(y,ys,T,dt)
-%
-% [R] = RDT(y,ys,T,dt) returns the free-decay response (R) by
-% using the random decrement technique (RDT) to the time serie y, with a
-% triggering value ys, and for a duration T
-%
-% INPUT:
-%   y: time series of ambient vibrations: vector of size [1xN]
-%   dt : Time step
-%   ys: triggering values (ys < max(abs(y)) and here ys~=0)
-%   T: Duration of subsegments (T<dt*(numel(y)-1))
-% OUTPUT:
-%   R: impusle response function
-%   t: time vector asociated to R
-% 
-% Author: E. Cheynet - UiB - last modified 14-05-2020
-%%
-if T>=dt*(numel(y)-1)
-    error('Error: subsegment length is too large');
-else
-    % number of time step per block
-    nT = round(T/dt); % sec
-end
-if ys==0
-    error('Error: ys must be different from zero')
-elseif or(ys >=max(y),ys <=min(y)),
-    error('Error:  ys must verifiy : min(y) < ys < max(y)')
-else
-    % find triggering value
-    ind=find(diff(y(1:end-nT)>ys)~=0)+1;
-    
-end
-% construction of decay vibration
-R = zeros(numel(ind),nT);
-for ii=1:numel(ind)
-    R(ii,:)=y(ind(ii):ind(ii)+nT-1);
-end
-% averaging to remove the random part
-R = mean(R);
-% normalize the R
-R = R./R(1);
-% time vector corresponding to the R
-t = linspace(0,T,numel(R));
-end
+## Current Sensor Strategy
 
-## NExt.m
+The available sensors are located at Levels 21, 25, and 29/Roof. The Level 29 sensors start about 30 minutes later than the Level 21 and Level 25 sensors, so they are not currently included in CSD/FDD calculations. CSD requires synchronized channels.
 
-function [R,t] = NExT(y,dt,Ts,method)
-%
-% [R] = NExT(y,ys,T,dt) implements the Natural Excitation Technique to
-% retrieve the free-decay response (R) from the cross-correlation
-% of the measured output y.
-%
-% 
-% Synthax
-% 
-%   [R] = NExT(y,dt,Ts,1) calculates R with cross-correlation
-%   calculated by using the inverse fast fourier transform of the
-%   cross-spectral power densities without zero-padding(method = 1).
-%
-%   [R] = NExT(y,dt,Ts,2) calculate the R with cross-correlation
-%   calculated by using the unbiased cross-covariance function (method = 2)
-%
-% Input
-%   y: time series of ambient vibrations: vector of size [1xN]
-%   dt : Time step
-%   method: 1 or 2 for the computation of cross-correlation functions
-%   T: Duration of subsegments (T<dt*(numel(y)-1))
-% 
-% Output
-% 
-% R: impusle response function
-% t: time vector asociated to R
-% 
-% Author: E. Cheynet - UiB - last modified 14-05-2020
-%%
-if nargin<4, method = 2; end % the fastest method is the default method
-if ~ismatrix(y), error('Error: y must be a vector or a matrix'),end
-[Nyy,N]=size(y);
-if Nyy>N
-    y=y';
-    [Nyy,N]=size(y);
-end
-% get the maximal segment length fixed by T
-M = round(Ts/dt);
-switch method
-    case 1
-        clear R
-        for ii=1:Nyy
-            for jj=1:Nyy
-                y1 = fft(y(ii,:));
-                y2 = fft(y(jj,:));
-                h0 = ifft(y1.*conj(y2));
-                R(ii,jj,:) = h0(1:M);
-            end
-        end
-        % get time vector t associated to the R
-        t = linspace(0,dt.*(size(R,3)-1),size(R,3));
-        if Nyy==1
-            R = squeeze(R)'; % if Nyy=1
-        end
-    case 2
-        R = zeros(Nyy,Nyy,M+1);
-        for ii=1:Nyy
-            for jj=1:Nyy
-                [dummy,lag]=xcov(y(ii,:),y(jj,:),M,'unbiased');
-                R(ii,jj,:) = dummy(end-round(numel(dummy)/2)+1:end);
-            end
-        end
-        if Nyy==1
-            R = squeeze(R)'; % if Nyy=1
-        end
-        % get time vector t associated to the R
-        t = dt.*lag(end-round(numel(lag)/2)+1:end);
-end
-% normalize the R
-if Nyy==1
-R = R./R(1);
-else
-end
+Current valid synchronized cases:
 
-## function [zeta] = expoFit(y,t,wn,optionPlot)
-% [zeta] = expoFit(y,t,wn) returns the damping ratio calcualted by fitting
-% an exponential decay to the envelop of the free-decay response.
-%
-% Input:
-%   y: envelop of the free-decay response: vector of size [1 x N]
-%   t: time vector [ 1 x N]
-%   wn: target eigen frequencies (rad/Hz) :  [1 x 1]
-%  optionPlot: 1 to plot the fitted function, and 0 not to plot it.
-% 
-% Output
-%  zeta: modal damping ratio:  [1 x 1]
-% 
-% author: E. Cheynet  - UiB - last updated: 14-05-2020
-% 
-%%
-% Initialisation
-guess = [1,1e-2];
-% simple exponentiald ecay function
-myFun = @(a,x) a(1).*exp(-a(2).*x);
-% application of nlinfit function
-coeff = nlinfit(t,y,myFun,guess);
-% modal damping ratio:
-zeta = abs(coeff(2)./wn);
-% alternatively: plot the fitted function
-if optionPlot== 1, plot(t,myFun(coeff,t),'r'); end
-end
+```text
+2023-03-01 | 6 sensors | 21S2X, 21S2Y, 21S3X, 25S2X, 25S2Y, 25S3X
+2023-03-01 | 3 sensors | 25S2X, 25S2Y, 25S3X
+2025-12-27 | 6 sensors | 21S2X, 21S2Y, 21S3X, 25S2X, 25S2Y, 25S3X
+2025-12-27 | 3 sensors | 25S2X, 25S2Y, 25S3X
+```
 
-# expoFit.m
+Roof sensors can be added later after explicit time alignment.
 
-function [zeta] = expoFit(y,t,wn,optionPlot)
-% [zeta] = expoFit(y,t,wn) returns the damping ratio calcualted by fitting
-% an exponential decay to the envelop of the free-decay response.
-%
-% Input:
-%   y: envelop of the free-decay response: vector of size [1 x N]
-%   t: time vector [ 1 x N]
-%   wn: target eigen frequencies (rad/Hz) :  [1 x 1]
-%  optionPlot: 1 to plot the fitted function, and 0 not to plot it.
-% 
-% Output
-%  zeta: modal damping ratio:  [1 x 1]
-% 
-% author: E. Cheynet  - UiB - last updated: 14-05-2020
-% 
-%%
-% Initialisation
-guess = [1,1e-2];
-% simple exponentiald ecay function
-myFun = @(a,x) a(1).*exp(-a(2).*x);
-% application of nlinfit function
-coeff = nlinfit(t,y,myFun,guess);
-% modal damping ratio:
-zeta = abs(coeff(2)./wn);
-% alternatively: plot the fitted function
-if optionPlot== 1, plot(t,myFun(coeff,t),'r'); end
-end
+## Workflow
 
-## CentDiff.m
+### 1. Read and clean sensor data
 
-function [y] = CentDiff(F,M,K,C,dt,x0,v0)
-% [y] = CentDiff(F,M,K,C,dt,x0,v0)solves numerically the equation of motion
-% of a damped system
-% 
-% 
-% INPUT
-% F : vector  -- size: [1x N] -- Time series representinf the time history of the load. 
-% M : scalar  -- size: [1 x 1] -- Modal mass
-% K : scalar  -- size: [1 x 1] -- Modal stifness
-% C : scalar  -- size: [1 x 1] -- Modal damping
-% dt : scalar  -- size: [1 x 1] -- time step
-% x0 : scalar  -- size: [1 x 1] -- initial displacement
-% v0 : scalar  -- size: [1 x 1] -- initial velocity
-% 
-% OUTPUT
-% y: time history of the system response to the load
-% 
-% author: E. Cheynet  - UiB - last updated: 14-05-2020
-% 
-%%
-% Initialisation
-N = size(F,2);
-% preallocation
-y = zeros(size(F));
-% initial acceleration
-a0 = M\(F(1)-C.*v0-K.*x0);
-% initialisation of y (first 2 values).
-y0 = x0-dt.*v0+dt^2/2*a0;
-y(:,1) = x0;
-A = (M./dt.^2+C./(2*dt));
-B = ((2*M./dt.^2-K).*y(:,1)+(C./(2*dt)-M./dt.^2).*y0+F(:,1));
-y(:,2) = A\B;
-% For the rest of integration points
-for ii=2:N-1
-    A = (M./dt.^2+C./(2*dt));
-    B = ((2*M./dt.^2-K).*y(:,ii)+(C./(2*dt)-M./dt.^2).*y(:,ii-1)+F(:,ii)); 
-    y(:,ii+1) = A\B;
-end
-end
+`src/io.py` parses metadata and acceleration records from the raw text files.
 
-### BSD 3-Clause License
- 
-Copyright (c) 2020, E.  Cheynet
-All rights reserved.
- 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
- 
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
- 
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
- 
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from
-   this software without specific prior written permission.
- 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Main output:
+
+```text
+time_sec
+accel_cm_s2
+accel_m_s2
+```
+
+### 2. Single-channel PSD
+
+PSD is used for initial inspection of measured vibration energy.
+
+Scripts:
+
+```text
+scripts/plot_all_psd.py
+scripts/plot_all_displacement_psd.py
+```
+
+Acceleration PSD is useful for general frequency content. Displacement-like PSD is computed by dividing acceleration PSD by `(2πf)^4`, which emphasizes long-period building modes.
+
+### 3. Cross-Spectral Density and FDD
+
+For synchronized sensors, the CSD matrix is built at each frequency:
+
+```text
+G(f) = cross-spectral density matrix
+```
+
+Then Singular Value Decomposition is applied:
+
+```text
+G(f) = U Σ Uᴴ
+```
+
+The first singular value identifies the dominant coherent building motion at each frequency.
+
+Scripts:
+
+```text
+scripts/plot_fdd_cases.py
+```
+
+Outputs:
+
+```text
+results/fdd_2023_6sync_L21_L25.png
+results/fdd_2023_3sync_L25.png
+results/fdd_2025_6sync_L21_L25.png
+results/fdd_2025_3sync_L25.png
+results/fdd_comparison_first_singular_value.png
+```
+
+### 4. Peak extraction
+
+FDD peak extraction converts visual observations into a table of measured modal frequencies and periods.
+
+Script:
+
+```text
+scripts/extract_fdd_peaks.py
+```
+
+Output:
+
+```text
+results/fdd_peak_summary.csv
+```
+
+This table compares measured FDD peaks against ETABS modal frequencies.
+
+## ETABS Reference Modes
+
+The measured peaks are compared against ETABS modal periods:
+
+```text
+Mode 1 UX: 6.87 sec, 0.146 Hz
+Mode 2 RZ: 5.95 sec, 0.168 Hz
+Mode 3 UY: 5.49 sec, 0.182 Hz
+Mode 4 UX: 2.71 sec, 0.370 Hz
+Mode 5 RZ: 2.28 sec, 0.438 Hz
+Mode 6 UY: 2.12 sec, 0.472 Hz
+```
+
+Initial FDD results suggest dominant coherent measured response near:
+
+```text
+2023 data: approximately 0.28 Hz, T ≈ 3.6 sec
+2025 data: approximately 0.32–0.33 Hz, T ≈ 3.0–3.1 sec
+```
+
+These should be confirmed using `fdd_peak_summary.csv`.
+
+## Next Steps
+
+1. Review `results/fdd_peak_summary.csv`.
+2. Select the dominant measured mode for each dataset.
+3. Bandpass the acceleration response around that measured modal frequency.
+4. Use RDT or NeXT to extract an impulse-response-like free decay.
+5. Use the Hilbert envelope and exponential decay fitting to estimate damping ratio.
+6. Validate damping estimates across channels and dates.
+7. Later, time-align roof sensors and repeat FDD with all 9 channels.
