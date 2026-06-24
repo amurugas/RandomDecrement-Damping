@@ -8,7 +8,7 @@ Raw accelerometer files are stored by date:
 
 ```text
 data/
-├─ 2023-03-01/
+├─ 2023-03-01/ 
 │  └─ Accelerometer/
 └─ 2025-12-27/
    └─ Accelerometer/
