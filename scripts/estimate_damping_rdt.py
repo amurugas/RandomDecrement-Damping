@@ -84,6 +84,9 @@ def estimate_file(npz_path):
     # Downsample to make RDT faster
     x_ds, fs_ds = downsample_signal(x, fs, TARGET_FS)
 
+    mode_name = str(get_scalar(data, "mode_name")) if "mode_name" in data else ""
+    band_name = str(get_scalar(data, "band_name")) if "band_name" in data else ""
+
     print(f"Dataset: {dataset}")
     print(f"Channel: {channel}")
     print(f"Original fs: {fs:.2f} Hz")
@@ -139,6 +142,8 @@ def estimate_file(npz_path):
         "file": npz_path.name,
         "dataset": dataset,
         "channel": channel,
+        "mode_name": mode_name,
+        "band_name": band_name,
         "mode_frequency_hz": mode_frequency_hz,
         "mode_period_sec": mode_period_sec,
         "f_low": f_low,
