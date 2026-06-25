@@ -18,7 +18,7 @@ PROCESSED_DIR = Path("data/processed")
 WIND_SUMMARY_FILE = Path("results/wind/wind_summary_all.csv")
 OUT_DIR = Path("results/windowed_damping")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-
+MPH_PER_MPS = 2.2369362920544
 
 WINDOW_SECONDS = 30 * 60
 TARGET_FS = 10.0
@@ -211,6 +211,10 @@ def process_bandpassed_file(npz_path, wind):
                 "wind_median_m_s": row.get("wind_median_m_s", np.nan),
                 "wind_max_m_s": row.get("wind_max_m_s", np.nan),
                 "wind_std_m_s": row.get("wind_std_m_s", np.nan),
+                "wind_mean_mph": row.get("wind_mean_m_s", np.nan) * MPH_PER_MPS,
+                "wind_median_mph": row.get("wind_median_m_s", np.nan) * MPH_PER_MPS,
+                "wind_max_mph": row.get("wind_max_m_s", np.nan) * MPH_PER_MPS,
+                "wind_std_mph": row.get("wind_std_m_s", np.nan) * MPH_PER_MPS,
                 "wind_n_samples": row.get("n_samples", np.nan),
                 "quality_flag": quality_flag,
             }
@@ -243,20 +247,20 @@ def plot_damping_vs_wind(df):
 
     for (dataset, channel), g in good.groupby(["dataset", "channel"]):
         plt.scatter(
-            g["wind_mean_m_s"],
+            g["wind_mean_mph"],
             g["damping_percent"],
             label=f"{dataset} {channel}",
             alpha=0.75,
         )
 
-    plt.xlabel("Mean wind speed [m/s]")
+    plt.xlabel("Mean wind speed [mph]")
     plt.ylabel("RDT damping estimate [%]")
     plt.title("Windowed damping vs mean wind speed")
     plt.grid(True, alpha=0.35)
     plt.legend(fontsize=8)
     plt.tight_layout()
 
-    out_path = OUT_DIR / "damping_vs_mean_wind_speed.png"
+    out_path = OUT_DIR / "damping_vs_mean_wind_speed_mph.png"
     plt.savefig(out_path, dpi=300)
     plt.close()
 

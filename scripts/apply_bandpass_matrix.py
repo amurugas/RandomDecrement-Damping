@@ -22,7 +22,7 @@ from src.config import (
 OUT_DIR = Path("results/bandpass_matrix")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-PROCESSED_DIR = Path("data/processed")
+PROCESSED_DIR = Path("data/processed_matrix")
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -185,7 +185,7 @@ def run_measured_mode_bandpass_sensitivity():
     """
     for mode_name, mode in MEASURED_MODES.items():
         dataset = mode["dataset"]
-        channels = DATASETS[dataset]["sync_groups"]["L25_3sync"]
+        channels = DATASETS[dataset]["sync_groups"]["L21_L25_6sync"]
 
         for band in BANDPASS_SENSITIVITY[mode_name]:
             process_bandpass_case(
@@ -230,7 +230,7 @@ def main():
     run_measured_mode_bandpass_sensitivity()
 
     # 2. ETABS-predicted mode bands
-    run_etabs_mode_cases()
+    #run_etabs_mode_cases()
 
 
 if __name__ == "__main__":

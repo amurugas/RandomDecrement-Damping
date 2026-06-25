@@ -8,6 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.io import read_wind_file
 
+MPH_PER_MPS = 2.2369362920544
 
 WIND_FILES = [
     Path("data/2023-03-01/Wind Sensor/08N4S-20230301_005350.txt"),
@@ -39,6 +40,11 @@ def summarize_file(file_path, window="30min"):
     summary["channel"] = meta["channel"]
     summary["window"] = window
 
+    summary["wind_mean_mph"] = summary["wind_mean_m_s"] * MPH_PER_MPS
+    summary["wind_median_mph"] = summary["wind_median_m_s"] * MPH_PER_MPS
+    summary["wind_max_mph"] = summary["wind_max_m_s"] * MPH_PER_MPS
+    summary["wind_std_mph"] = summary["wind_std_m_s"] * MPH_PER_MPS
+
     return summary
 
 
@@ -47,25 +53,25 @@ def plot_summary(summary, name):
 
     plt.plot(
         summary["timestamp"],
-        summary["wind_mean_m_s"],
+        summary["wind_mean_mph"],
         label="Mean wind speed",
     )
 
     plt.plot(
         summary["timestamp"],
-        summary["wind_max_m_s"],
+        summary["wind_max_mph"],
         label="Max wind speed",
         alpha=0.7,
     )
 
     plt.xlabel("Time")
-    plt.ylabel("Wind speed [m/s]")
+    plt.ylabel("Wind speed [mph]")
     plt.title(f"Wind speed summary - {name}")
     plt.grid(True, alpha=0.35)
     plt.legend()
     plt.tight_layout()
 
-    out_path = OUT_DIR / f"wind_summary_{name}.png"
+    out_path = OUT_DIR / f"wind_summary_mph_{name}.png"
     plt.savefig(out_path, dpi=300)
     plt.close()
 

@@ -12,7 +12,7 @@ from src.rdt import random_decrement_signature
 from src.damping import fit_exponential_decay
 
 
-PROCESSED_DIR = Path("data/processed")
+PROCESSED_DIR = Path("data/processed_matrix")
 OUT_DIR = Path("results/rdt")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
