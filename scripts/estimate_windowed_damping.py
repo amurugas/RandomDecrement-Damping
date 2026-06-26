@@ -207,14 +207,24 @@ def process_bandpassed_file(npz_path, wind):
                 "mode_period_sec": mode_period_sec,
                 "f_low": f_low,
                 "f_high": f_high,
-                "wind_mean_m_s": row.get("wind_mean_m_s", np.nan),
-                "wind_median_m_s": row.get("wind_median_m_s", np.nan),
-                "wind_max_m_s": row.get("wind_max_m_s", np.nan),
-                "wind_std_m_s": row.get("wind_std_m_s", np.nan),
-                "wind_mean_mph": row.get("wind_mean_m_s", np.nan) * MPH_PER_MPS,
-                "wind_median_mph": row.get("wind_median_m_s", np.nan) * MPH_PER_MPS,
-                "wind_max_mph": row.get("wind_max_m_s", np.nan) * MPH_PER_MPS,
-                "wind_std_mph": row.get("wind_std_m_s", np.nan) * MPH_PER_MPS,
+                # Roof-level wind (raw sensor height), kept for traceability.
+                "wind_mean_roof_m_s": row.get("wind_mean_roof_m_s", np.nan),
+                "wind_median_roof_m_s": row.get("wind_median_roof_m_s", np.nan),
+                "wind_max_raw_roof_m_s": row.get("wind_max_raw_roof_m_s", np.nan),
+                "wind_std_roof_m_s": row.get("wind_std_roof_m_s", np.nan),
+                "wind_3s_gust_roof_m_s": row.get("wind_3s_gust_roof_m_s", np.nan),
+                "wind_mean_roof_mph": row.get("wind_mean_roof_m_s", np.nan) * MPH_PER_MPS,
+                "wind_3s_gust_roof_mph": row.get("wind_3s_gust_roof_m_s", np.nan) * MPH_PER_MPS,
+                "wind_max_raw_roof_mph": row.get("wind_max_raw_roof_m_s", np.nan) * MPH_PER_MPS,
+                # Height-corrected to 10 m (preferred for damping-vs-wind).
+                "wind_mean_10m_m_s": row.get("wind_mean_10m_m_s", np.nan),
+                "wind_median_10m_m_s": row.get("wind_median_10m_m_s", np.nan),
+                "wind_max_raw_10m_m_s": row.get("wind_max_raw_10m_m_s", np.nan),
+                "wind_std_10m_m_s": row.get("wind_std_10m_m_s", np.nan),
+                "wind_3s_gust_10m_m_s": row.get("wind_3s_gust_10m_m_s", np.nan),
+                "wind_mean_10m_mph": row.get("wind_mean_10m_m_s", np.nan) * MPH_PER_MPS,
+                "wind_3s_gust_10m_mph": row.get("wind_3s_gust_10m_m_s", np.nan) * MPH_PER_MPS,
+                "wind_max_raw_10m_mph": row.get("wind_max_raw_10m_m_s", np.nan) * MPH_PER_MPS,
                 "wind_n_samples": row.get("n_samples", np.nan),
                 "quality_flag": quality_flag,
             }
@@ -224,7 +234,7 @@ def process_bandpassed_file(npz_path, wind):
 
             print(
                 f"{window_start} | "
-                f"wind_mean={output_row['wind_mean_m_s']:.2f} m/s | "
+                f"wind_mean_10m={output_row['wind_mean_10m_m_s']:.2f} m/s | "
                 f"zeta={output_row['damping_percent']:.2f}% | "
                 f"R2={output_row['fit_r_squared']:.2f} | "
                 f"N={output_row['n_segments']}"
@@ -247,15 +257,15 @@ def plot_damping_vs_wind(df):
 
     for (dataset, channel), g in good.groupby(["dataset", "channel"]):
         plt.scatter(
-            g["wind_mean_mph"],
+            g["wind_mean_10m_mph"],
             g["damping_percent"],
             label=f"{dataset} {channel}",
             alpha=0.75,
         )
 
-    plt.xlabel("Mean wind speed [mph]")
+    plt.xlabel("Mean wind speed at 10 m [mph]")
     plt.ylabel("RDT damping estimate [%]")
-    plt.title("Windowed damping vs mean wind speed")
+    plt.title("Windowed damping vs mean wind speed (10 m)")
     plt.grid(True, alpha=0.35)
     plt.legend(fontsize=8)
     plt.tight_layout()
