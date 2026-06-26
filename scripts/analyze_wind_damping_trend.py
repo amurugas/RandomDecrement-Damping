@@ -1,15 +1,19 @@
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from src.wind import mps_to_mph
 
 
 INPUT_CSV = Path("results/windowed_damping/windowed_damping_summary.csv")
 OUT_DIR = Path("results/windowed_damping")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-MPH_PER_MPS = 2.2369362920544
 WIND_BINS = [0, 5, 10, 15, 20, 25, 30, 35, 45]
 
 def load_data():
@@ -30,7 +34,7 @@ def load_data():
     ].copy()
 
     if "wind_mean_mph" not in df.columns:
-        df["wind_mean_mph"] = df["wind_mean_m_s"] * MPH_PER_MPS
+        df["wind_mean_mph"] = mps_to_mph(df["wind_mean_m_s"])
 
     return df
 

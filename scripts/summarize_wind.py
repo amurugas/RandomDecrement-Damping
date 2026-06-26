@@ -7,8 +7,7 @@ import matplotlib.pyplot as plt
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.io import read_wind_file
-
-MPH_PER_MPS = 2.2369362920544
+from src.wind import mps_to_mph
 
 WIND_FILES = [
     Path("data/2023-03-01/Wind Sensor/08N4S-20230301_005350.txt"),
@@ -27,7 +26,8 @@ def summarize_file(file_path, window="30min"):
 
     df = df.set_index("timestamp")
 
-    summary = df["wind_m_s"].resample(window).agg(
+    # wind_ref_m_s is already reference-height corrected at read time.
+    summary = df["wind_ref_m_s"].resample(window).agg(
         wind_mean_m_s="mean",
         wind_median_m_s="median",
         wind_max_m_s="max",
@@ -40,10 +40,10 @@ def summarize_file(file_path, window="30min"):
     summary["channel"] = meta["channel"]
     summary["window"] = window
 
-    summary["wind_mean_mph"] = summary["wind_mean_m_s"] * MPH_PER_MPS
-    summary["wind_median_mph"] = summary["wind_median_m_s"] * MPH_PER_MPS
-    summary["wind_max_mph"] = summary["wind_max_m_s"] * MPH_PER_MPS
-    summary["wind_std_mph"] = summary["wind_std_m_s"] * MPH_PER_MPS
+    summary["wind_mean_mph"] = mps_to_mph(summary["wind_mean_m_s"])
+    summary["wind_median_mph"] = mps_to_mph(summary["wind_median_m_s"])
+    summary["wind_max_mph"] = mps_to_mph(summary["wind_max_m_s"])
+    summary["wind_std_mph"] = mps_to_mph(summary["wind_std_m_s"])
 
     return summary
 

@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 import numpy as np
 
+from src.wind import correct_to_reference_height, mps_to_mph
+
 def read_sensor_metadata(path):
     path = Path(path)
     metadata = {}
@@ -94,12 +96,19 @@ def read_wind_file(path, nrows=None):
     Expected header:
         Time:sec   08N4S,m/s
 
+    Wind-speed unit conversion (m/s -> mph) and reference-height
+    correction are applied here, at the single point the raw wind record
+    is consumed, using ``src.wind``. Downstream code consumes the
+    resulting columns and must not re-derive them.
+
     Returns
     -------
     meta : dict
     df : DataFrame with:
         time_sec
-        wind_m_s
+        wind_m_s          raw anemometer speed [m/s]
+        wind_ref_m_s      speed corrected to the reference height [m/s]
+        wind_ref_mph      reference-height speed [mph]
         timestamp
     """
     path = Path(path)
@@ -113,6 +122,9 @@ def read_wind_file(path, nrows=None):
         nrows=nrows,
         engine="python",
     )
+
+    df["wind_ref_m_s"] = correct_to_reference_height(df["wind_m_s"])
+    df["wind_ref_mph"] = mps_to_mph(df["wind_ref_m_s"])
 
     start_dt = parse_start_datetime(meta)
 
