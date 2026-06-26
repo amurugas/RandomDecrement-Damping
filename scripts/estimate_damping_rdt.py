@@ -98,7 +98,7 @@ def estimate_file(npz_path):
     # RDT settings tied to the mode
     min_spacing_seconds = 0.8 * mode_period_sec
 
-    t_rdt, rds, n_segments, threshold = random_decrement_signature(
+    t_rdt, rds, n_segments, threshold, segments, trigger_indices = random_decrement_signature(
         signal=x_ds,
         fs=fs_ds,
         segment_seconds=SEGMENT_SECONDS,
@@ -106,6 +106,7 @@ def estimate_file(npz_path):
         threshold_factor=THRESHOLD_FACTOR,
         min_spacing_seconds=min_spacing_seconds,
         normalize=True,
+        return_segments=True,
     )
 
     # Fit approximately from 1 cycle to 12 cycles
@@ -136,6 +137,17 @@ def estimate_file(npz_path):
         rds=rds,
         result=result,
         n_segments=n_segments,
+        segments=segments,
+    )
+
+    plot_trigger_history(
+        npz_path=npz_path,
+        dataset=dataset,
+        channel=channel,
+        signal=x_ds,
+        fs=fs_ds,
+        threshold=threshold,
+        trigger_indices=trigger_indices,
     )
 
     return {
@@ -172,20 +184,46 @@ def plot_rdt_result(
     rds,
     result,
     n_segments,
+    segments=None,
 ):
     envelope = result["envelope"]
     envelope_fit = result["envelope_fit"]
 
     plt.figure(figsize=(12, 7))
 
-    plt.plot(t, rds, label="Random Decrement Signature", linewidth=1.5)
-    plt.plot(t, envelope, label="Hilbert envelope", linewidth=1.5)
+    # Overlay the individual traces that were averaged, each in a different
+    # color at half transparency, so the spread behind the average is visible.
+    if segments is not None and len(segments) > 0:
+        cmap = plt.get_cmap("turbo")
+        n = len(segments)
+        for i, segment in enumerate(segments):
+            color = cmap(i / max(n - 1, 1))
+            plt.plot(
+                t,
+                segment,
+                color=color,
+                alpha=0.5,
+                linewidth=0.6,
+                zorder=1,
+                label="Individual traces" if i == 0 else None,
+            )
+
+    plt.plot(
+        t,
+        rds,
+        color="black",
+        label="Random Decrement Signature",
+        linewidth=1.5,
+        zorder=3,
+    )
+    plt.plot(t, envelope, label="Hilbert envelope", linewidth=1.5, zorder=4)
     plt.plot(
         t,
         envelope_fit,
         "--",
         label="Exponential fit",
         linewidth=2,
+        zorder=5,
     )
 
     plt.axvspan(
@@ -210,6 +248,64 @@ def plot_rdt_result(
     plt.tight_layout()
 
     out_name = npz_path.stem.replace("bandpassed_", "rdt_decay_") + ".png"
+    out_path = OUT_DIR / out_name
+
+    plt.savefig(out_path, dpi=300)
+    plt.close()
+
+    print(f"Saved: {out_path}")
+
+
+def plot_trigger_history(
+    npz_path,
+    dataset,
+    channel,
+    signal,
+    fs,
+    threshold,
+    trigger_indices,
+):
+    """
+    Plot the full time history with the threshold-crossing points where the
+    averaged RDT traces are picked.
+    """
+    x = np.asarray(signal, dtype=float)
+    t = np.arange(len(x)) / fs
+
+    plt.figure(figsize=(14, 5))
+
+    plt.plot(t, x, color="0.4", linewidth=0.6, label="Time history", zorder=1)
+    plt.axhline(
+        threshold,
+        color="tab:red",
+        linestyle="--",
+        linewidth=1.2,
+        label=f"Threshold = {threshold:.3e}",
+        zorder=2,
+    )
+
+    if len(trigger_indices) > 0:
+        trig = np.asarray(trigger_indices)
+        plt.scatter(
+            t[trig],
+            x[trig],
+            color="tab:red",
+            s=18,
+            zorder=3,
+            label=f"Trace pick points (N = {len(trig)})",
+        )
+
+    plt.xlabel("Time [sec]")
+    plt.ylabel("Response")
+    plt.title(
+        f"RDT trace pick points - {dataset} {channel}\\n"
+        f"Threshold crossings used for averaging (N = {len(trigger_indices)})"
+    )
+    plt.grid(True, alpha=0.35)
+    plt.legend(loc="upper right")
+    plt.tight_layout()
+
+    out_name = npz_path.stem.replace("bandpassed_", "rdt_triggers_") + ".png"
     out_path = OUT_DIR / out_name
 
     plt.savefig(out_path, dpi=300)
