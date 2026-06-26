@@ -81,7 +81,7 @@ Roof sensors can be added later after explicit time alignment.
 | `io.py` | Read accelerometer and wind files. `read_sensor_metadata`, `read_sensor_file` (returns `meta`, `DataFrame` with `time_sec`, `accel_cm_s2`, `accel_m_s2`), `read_sensor_sample`, `parse_start_datetime`, and `read_wind_file` (returns `time_sec`, `wind_m_s`, `timestamp`). |
 | `filtering.py` | `bandpass_filter` — zero-phase Butterworth bandpass (`sosfiltfilt`) to isolate a single mode. |
 | `fdd.py` | `build_csd_matrix` builds the cross-spectral density matrix `G(f)` via Welch CSD; `compute_fdd` runs an SVD at each frequency line to return singular values and mode shapes. |
-| `rdt.py` | `random_decrement_signature` — Random Decrement Signature from positive level upcrossings, producing a free-decay-like signal. |
+| `rdt.py` | `random_decrement_signature` — Random Decrement Signature from positive level upcrossings, producing a free-decay-like signal. Pass `return_segments=True` to also get the individual averaged traces and their trigger sample indices. |
 | `damping.py` | `fit_exponential_decay` — Hilbert envelope plus exponential fit to estimate the damping ratio (`zeta = alpha / omega_n`) with an R² goodness-of-fit. |
 | `config.py` | Central configuration: `DATASETS`, ETABS reference modes (`ETABS_MODES`), measured modes (`MEASURED_MODES`), and bandpass case tables (`BANDPASS_SENSITIVITY`, `ETABS_BANDPASS_CASES`). |
 
@@ -135,7 +135,7 @@ frequency.
 
 | Script | Description |
 | --- | --- |
-| `estimate_damping_rdt.py` | Downsample the bandpassed series, compute the Random Decrement Signature, fit an exponential decay envelope, and record damping. Reads `data/processed_matrix/` and writes `results/rdt/damping_summary.csv`. |
+| `estimate_damping_rdt.py` | Downsample the bandpassed series, compute the Random Decrement Signature, fit an exponential decay envelope, and record damping. Reads `data/processed_matrix/` and writes `results/rdt/damping_summary.csv`. For each channel it saves an RDT decay plot (`rdt_decay_*.png`) that overlays the individual averaged traces in half-transparent colors behind the signature, plus a time-history plot (`rdt_triggers_*.png`) marking the threshold-crossing points where traces are picked. |
 | `analyze_bandpass_sensitivity.py` | Summarize how the damping estimate varies across narrow/medium/wide bandpass widths. Reads `results/rdt/damping_summary.csv`; writes to `results/sensitivity/`. |
 
 ### 6. Wind, and damping vs. wind trend

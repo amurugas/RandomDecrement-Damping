@@ -9,6 +9,7 @@ def random_decrement_signature(
     threshold_factor=0.5,
     min_spacing_seconds=None,
     normalize=True,
+    return_segments=False,
 ):
     """
     Compute Random Decrement Signature using positive level upcrossings.
@@ -29,6 +30,9 @@ def random_decrement_signature(
         Minimum spacing between triggers. Helps avoid too many nearly repeated triggers.
     normalize : bool
         If True, normalize RDT signature by its initial value.
+    return_segments : bool
+        If True, also return the individual averaged segments and the trigger
+        sample indices (into the mean-removed signal).
 
     Returns
     -------
@@ -40,6 +44,14 @@ def random_decrement_signature(
         Number of averaged segments.
     threshold : float
         Trigger threshold used.
+    segments : np.ndarray, optional
+        Only returned when ``return_segments`` is True. Array of shape
+        ``(n_segments, n_segment)`` holding each individual trace that was
+        averaged, scaled consistently with ``rds`` (so the same normalization
+        is applied).
+    trigger_indices : np.ndarray, optional
+        Only returned when ``return_segments`` is True. Sample indices in the
+        mean-removed signal where each averaged trace begins.
     """
     x = np.asarray(signal, dtype=float)
     x = x - np.nanmean(x)
@@ -79,16 +91,24 @@ def random_decrement_signature(
         raise ValueError("No RDT triggers remain after spacing filter.")
 
     rds_sum = np.zeros(n_segment)
+    segments = np.empty((len(triggers), n_segment))
 
-    for idx in triggers:
-        rds_sum += x[idx:idx + n_segment]
+    for i, idx in enumerate(triggers):
+        segment = x[idx:idx + n_segment]
+        segments[i] = segment
+        rds_sum += segment
 
     rds = rds_sum / len(triggers)
 
     if normalize:
         if abs(rds[0]) > 1e-20:
-            rds = rds / abs(rds[0])
+            scale = 1.0 / abs(rds[0])
+            rds = rds * scale
+            segments = segments * scale
 
     t = np.arange(n_segment) / fs
+
+    if return_segments:
+        return t, rds, len(triggers), threshold, segments, np.asarray(triggers)
 
     return t, rds, len(triggers), threshold
