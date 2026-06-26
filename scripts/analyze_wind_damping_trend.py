@@ -22,22 +22,23 @@ def load_data():
     df = df[
         (df["quality_flag"] == True)
         & np.isfinite(df["damping_percent"])
-        & np.isfinite(df["wind_mean_m_s"])
+        & np.isfinite(df["wind_mean_10m_m_s"])
         & (df["damping_percent"] > 0)
         & (df["damping_percent"] < 15)
         & (df["fit_r_squared"] >= 0.70)
         & (df["n_segments"] >= 100)
     ].copy()
 
-    if "wind_mean_mph" not in df.columns:
-        df["wind_mean_mph"] = df["wind_mean_m_s"] * MPH_PER_MPS
+    # Prefer height-corrected 10 m wind; fall back to deriving it from m/s.
+    if "wind_mean_10m_mph" not in df.columns:
+        df["wind_mean_10m_mph"] = df["wind_mean_10m_m_s"] * MPH_PER_MPS
 
     return df
 
 
 def make_binned_summary(df):
     df["wind_bin_mph"] = pd.cut(
-        df["wind_mean_mph"],
+        df["wind_mean_10m_mph"],
         bins=WIND_BINS,
         right=False,
         include_lowest=True,
@@ -47,8 +48,8 @@ def make_binned_summary(df):
         df.groupby(["dataset", "channel", "wind_bin_mph"], observed=True)
         .agg(
             n_windows=("damping_percent", "count"),
-            wind_mean_mph=("wind_mean_mph", "mean"),
-            wind_mean_m_s=("wind_mean_m_s", "mean"),
+            wind_mean_10m_mph=("wind_mean_10m_mph", "mean"),
+            wind_mean_10m_m_s=("wind_mean_10m_m_s", "mean"),
             damping_median_percent=("damping_percent", "median"),
             damping_mean_percent=("damping_percent", "mean"),
             damping_p25_percent=("damping_percent", lambda x: np.percentile(x, 25)),
@@ -61,7 +62,7 @@ def make_binned_summary(df):
 
 def make_overall_binned_summary(df):
     df["wind_bin_mph"] = pd.cut(
-        df["wind_mean_mph"],
+        df["wind_mean_10m_mph"],
         bins=WIND_BINS,
         right=False,
         include_lowest=True,
@@ -71,8 +72,8 @@ def make_overall_binned_summary(df):
         df.groupby(["wind_bin_mph"], observed=True)
         .agg(
             n_windows=("damping_percent", "count"),
-            wind_mean_mph=("wind_mean_mph", "mean"),
-            wind_mean_m_s=("wind_mean_m_s", "mean"),
+            wind_mean_10m_mph=("wind_mean_10m_mph", "mean"),
+            wind_mean_10m_m_s=("wind_mean_10m_m_s", "mean"),
             damping_median_percent=("damping_percent", "median"),
             damping_mean_percent=("damping_percent", "mean"),
             damping_p25_percent=("damping_percent", lambda x: np.percentile(x, 25)),
@@ -86,16 +87,16 @@ def make_overall_binned_summary(df):
 
 def fit_low_wind_intercept(df, max_wind_mph=9.0):
     """
-    Fit damping = a + b * wind_mean_mph using low-wind windows.
+    Fit damping = a + b * wind_mean_10m_mph using low-wind windows.
 
     The intercept a is a crude low-wind proxy for baseline damping.
     """
-    low = df[df["wind_mean_mph"] <= max_wind_mph].copy()
+    low = df[df["wind_mean_10m_mph"] <= max_wind_mph].copy()
 
     if len(low) < 5:
         return None
 
-    x = low["wind_mean_mph"].to_numpy()
+    x = low["wind_mean_10m_mph"].to_numpy()
     y = low["damping_percent"].to_numpy()
 
     b, a = np.polyfit(x, y, deg=1)
@@ -111,7 +112,7 @@ def fit_low_wind_intercept(df, max_wind_mph=9.0):
 def plot_binned_trend(overall):
     plt.figure(figsize=(10, 6))
 
-    x = overall["wind_mean_mph"]
+    x = overall["wind_mean_10m_mph"]
     y = overall["damping_median_percent"]
     yerr_lower = y - overall["damping_p25_percent"]
     yerr_upper = overall["damping_p75_percent"] - y
@@ -125,7 +126,7 @@ def plot_binned_trend(overall):
         label="Median damping with IQR",
     )
 
-    plt.xlabel("Mean wind speed [mph]")
+    plt.xlabel("Mean wind speed at 10 m [mph]")
     plt.ylabel("RDT damping estimate [%]")
     plt.title("Binned damping trend vs mean wind speed")
     plt.grid(True, alpha=0.35)
@@ -143,14 +144,14 @@ def plot_low_wind_fit(df, fit):
     plt.figure(figsize=(10, 6))
 
     plt.scatter(
-        df["wind_mean_mph"],
+        df["wind_mean_10m_mph"],
         df["damping_percent"],
         alpha=0.35,
         label="Window estimates",
     )
 
     if fit is not None:
-        x_line = np.linspace(0, df["wind_mean_mph"].max(), 100)
+        x_line = np.linspace(0, df["wind_mean_10m_mph"].max(), 100)
         y_line = fit["intercept_percent"] + fit["slope_percent_per_mph"] * x_line
 
         plt.plot(
@@ -163,7 +164,7 @@ def plot_low_wind_fit(df, fit):
             ),
         )
 
-    plt.xlabel("Mean wind speed [mph]")
+    plt.xlabel("Mean wind speed at 10 m [mph]")
     plt.ylabel("RDT damping estimate [%]")
     plt.title("Low-wind damping trend fit")
     plt.grid(True, alpha=0.35)
