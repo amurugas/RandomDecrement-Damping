@@ -237,7 +237,7 @@ def plot_rdt_result(
     plt.xlabel("Time [sec]")
     plt.ylabel("Normalized response")
     plt.title(
-        f"RDT damping estimate - {dataset} {channel}\\n"
+        f"RDT damping estimate - {dataset} {channel}\n"
         f"f = {mode_frequency_hz:.3f} Hz, "
         f"T = {mode_period_sec:.2f} sec, "
         f"ζ = {result['damping_percent']:.2f}%, "
@@ -298,7 +298,7 @@ def plot_trigger_history(
     plt.xlabel("Time [sec]")
     plt.ylabel("Response")
     plt.title(
-        f"RDT trace pick points - {dataset} {channel}\\n"
+        f"RDT trace pick points - {dataset} {channel}\n"
         f"Threshold crossings used for averaging (N = {len(trigger_indices)})"
     )
     plt.grid(True, alpha=0.35)
