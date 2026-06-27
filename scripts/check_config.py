@@ -66,6 +66,11 @@ def main():
         for group_name, channels in info["sync_groups"].items():
             print(f"\n  Group: {group_name}")
 
+            if group_name == "L25_3sync":
+                print("    Note: historical alias for L29_roof_3sync")
+            elif group_name.startswith("L25") and any(ch.startswith("29") for ch in channels):
+                print("    WARNING: group name says L25 but contains Level 29 channels")
+
             for channel in channels:
                 matches = check_file_exists(accel_folder, channel)
 

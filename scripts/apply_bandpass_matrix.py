@@ -205,7 +205,7 @@ def run_etabs_mode_cases():
     Run bandpass filtering around ETABS-predicted modes for each dataset.
     """
     for dataset, dataset_info in DATASETS.items():
-        channels = dataset_info["sync_groups"]["L25_3sync"]
+        channels = dataset_info["sync_groups"]["L29_roof_3sync"]
 
         for mode_name, mode in ETABS_MODES.items():
             period_sec = mode["period_sec"]

@@ -7,41 +7,12 @@ from scipy.signal import find_peaks
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from src.io import read_sensor_file
 from src.fdd import build_csd_matrix, compute_fdd
-from scripts.plot_all_fdd import CASES, ETABS_MODES
+from scripts.plot_all_fdd import CASES, ETABS_MODES, load_case_signals
 
 
 OUT_DIR = Path("results")
 OUT_DIR.mkdir(exist_ok=True)
-
-
-def load_case_signals(case):
-    signals = {}
-    fs_values = []
-
-    for file_name in case["files"]:
-        file_path = case["folder"] / file_name
-
-        print(f"Reading {file_path}")
-        meta, df = read_sensor_file(file_path)
-
-        channel = meta["channel"]
-        x = df["accel_m_s2"].to_numpy()
-        x = x - np.nanmean(x)
-
-        signals[channel] = x
-        fs_values.append(meta["sampling_rate_hz"])
-
-    fs_values = np.array(fs_values)
-
-    if not np.allclose(fs_values, fs_values[0]):
-        raise ValueError(f"Sampling rates do not match: {fs_values}")
-
-    min_len = min(len(x) for x in signals.values())
-    signals = {ch: x[:min_len] for ch, x in signals.items()}
-
-    return signals, fs_values[0]
 
 
 def closest_etabs_mode(freq_hz):

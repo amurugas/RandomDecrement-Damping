@@ -8,6 +8,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.io import read_sensor_file
 from src.fdd import build_csd_matrix, compute_fdd
+from src.config import DATASETS
+from src.io import parse_start_datetime
+from src.alignment import SignalRecord, align_signal_records
 
 
 OUT_DIR = Path("results")
@@ -23,67 +26,83 @@ ETABS_MODES = {
 }
 
 
-CASES = [
-    {
-        "dataset": "2023-03-01",
-        "folder": Path("data/2023-03-01/Accelerometer"),
-        "name": "2023_6sync_L21_L25",
-        "title": "FDD - 2023-03-01 - synchronized 6 sensors, L21 + L25",
-        "files": [
-            "21S2X-20230301_000511.txt",
-            "21S2Y-20230301_000511.txt",
-            "21S3X-20230301_000511.txt",
-            "25S2X-20230301_000511.txt",
-            "25S2Y-20230301_000511.txt",
-            "25S3X-20230301_000511.txt",
+def build_cases():
+    cases = []
 
-        ],
-    },
-    {
-        "dataset": "2023-03-01",
-        "folder": Path("data/2023-03-01/Accelerometer"),
-        "name": "2023_3sync_L25",
-        "title": "FDD - 2023-03-01 - synchronized 3 sensors, L25 only",
-        "files": [
-                "29S2X-20230301_003526.txt",
-                "29S2Y-20230301_003526.txt",
-                "29S3X-20230301_003526.txt",
-        ],
-    },
-    {
-        "dataset": "2025-12-27",
-        "folder": Path("data/2025-12-27/Accelerometer"),
-        "name": "2025_6sync_L21_L25",
-        "title": "FDD - 2025-12-27 - synchronized 6 sensors, L21 + L25",
-        "files": [
-            "21S2X-20251227_000254.txt",
-            "21S2Y-20251227_000254.txt",
-            "21S3X-20251227_000254.txt",
-            "25S2X-20251227_000254.txt",
-            "25S2Y-20251227_000254.txt",
-            "25S3X-20251227_000254.txt",
-        ],
-    },
-    {
-        "dataset": "2025-12-27",
-        "folder": Path("data/2025-12-27/Accelerometer"),
-        "name": "2025_3sync_L25",
-        "title": "FDD - 2025-12-27 - synchronized 3 sensors, L25 only",
-        "files": [
-            "29S2X-20251227_003323.txt",
-            "29S2Y-20251227_003323.txt",
-            "29S3X-20251227_003323.txt",
-        ],
-    },
-]
+    for dataset, info in DATASETS.items():
+        label = dataset[:4]
+        groups = info["sync_groups"]
+        l21_l25 = groups["L21_L25_6sync"]
+        l29_roof = groups["L29_roof_3sync"]
+
+        cases.extend(
+            [
+                {
+                    "dataset": dataset,
+                    "folder": info["accel_folder"],
+                    "name": f"{label}_6sync_L21_L25",
+                    "title": f"FDD - {dataset} - synchronized 6 sensors, L21 + L25",
+                    "channels": l21_l25,
+                    "align_by_time": False,
+                },
+                {
+                    "dataset": dataset,
+                    "folder": info["accel_folder"],
+                    "name": f"{label}_3sync_L29_roof",
+                    "title": (
+                        f"FDD - {dataset} - synchronized 3 sensors, "
+                        "Level 29 / Roof"
+                    ),
+                    "channels": l29_roof,
+                    "align_by_time": False,
+                },
+                {
+                    "dataset": dataset,
+                    "folder": info["accel_folder"],
+                    "name": f"{label}_9ch_aligned_L21_L25_L29_roof",
+                    "title": (
+                        f"FDD - {dataset} - aligned 9 sensors, "
+                        "L21 + L25 + Level 29 / Roof"
+                    ),
+                    "channels": l21_l25 + l29_roof,
+                    "align_by_time": True,
+                },
+            ]
+        )
+
+    return cases
+
+
+CASES = build_cases()
+
+
+def find_channel_file(folder, channel):
+    matches = sorted(folder.glob(f"{channel}-*.txt"))
+
+    if not matches:
+        raise FileNotFoundError(f"No file found for channel {channel} in {folder}")
+
+    if len(matches) > 1:
+        print(f"Warning: multiple files found for {channel}. Using {matches[0]}")
+
+    return matches[0]
 
 
 def load_case_signals(case):
-    signals = {}
-    fs_values = []
+    records = []
+    channels = case.get("channels")
+    file_names = case.get("files")
 
-    for file_name in case["files"]:
-        file_path = case["folder"] / file_name
+    if channels is None and file_names is None:
+        raise ValueError("Case must define either 'channels' or 'files'")
+
+    file_refs = channels if channels is not None else file_names
+
+    for file_ref in file_refs:
+        if channels is not None:
+            file_path = find_channel_file(case["folder"], file_ref)
+        else:
+            file_path = case["folder"] / file_ref
 
         if not file_path.exists():
             raise FileNotFoundError(f"Missing file: {file_path}")
@@ -92,30 +111,47 @@ def load_case_signals(case):
 
         meta, df = read_sensor_file(file_path)
 
-        channel = meta["channel"]
         x = df["accel_m_s2"].to_numpy()
-        x = x - np.nanmean(x)
-
-        signals[channel] = x
-        fs_values.append(meta["sampling_rate_hz"])
+        start_time = parse_start_datetime(meta)
 
         print(
-            f"  {channel}: {meta.get('Start_date')} "
+            f"  {meta['channel']}: {meta.get('Start_date')} "
             f"{meta.get('Start_time')} | n={len(x):,}"
         )
 
-    fs_values = np.array(fs_values)
+        records.append(
+            SignalRecord(
+                channel=meta["channel"],
+                values=x,
+                fs=meta["sampling_rate_hz"],
+                start_time=start_time,
+            )
+        )
 
-    if not np.allclose(fs_values, fs_values[0]):
-        raise ValueError(f"Sampling rates do not match: {fs_values}")
+    signals, fs, alignment = align_signal_records(
+        records,
+        align_by_time=case.get("align_by_time", False),
+    )
+    signals = {
+        channel: x - np.nanmean(x)
+        for channel, x in signals.items()
+    }
 
-    min_len = min(len(x) for x in signals.values())
-    signals = {ch: x[:min_len] for ch, x in signals.items()}
+    if case.get("align_by_time", False):
+        print("Alignment summary:")
+        for channel in signals:
+            item = alignment[channel]
+            print(
+                f"  {channel}: start={item['start_time']} "
+                f"offset={item['offset_sec']:.3f}s "
+                f"samples={item['source_start_index']}:{item['source_end_index']}"
+            )
 
-    print(f"Trimmed all channels to {min_len:,} samples")
-    print(f"Duration = {min_len / fs_values[0] / 3600:.2f} hours")
+    n_samples = min(len(x) for x in signals.values())
+    print(f"Aligned all channels to {n_samples:,} samples")
+    print(f"Duration = {n_samples / fs / 3600:.2f} hours")
 
-    return signals, fs_values[0]
+    return signals, fs
 
 def plot_combined_first_singular_value(results, xlim=(0.05, 0.50)):
     plt.figure(figsize=(12, 7))

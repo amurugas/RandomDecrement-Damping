@@ -159,7 +159,7 @@ tables are `.csv` files you can open in Excel.
 | --- | --- | --- |
 | `psd_x_direction.png`, `psd_y_direction.png`, `psd_torsion_channels.png` | `plot_all_psd.py` | Frequency content per direction |
 | `disp_psd_x_direction.png`, `disp_psd_y_direction.png`, `disp_psd_torsion_channels.png` | `plot_all_displacement_psd.py` | Same, emphasizing slow sway modes |
-| `fdd_*.png`, `fdd_comparison_first_singular_value.png`, `fdd_all_9_sensors.png` | `plot_fdd.py`, `plot_all_fdd.py` | Identified building modes (FDD) |
+| `fdd_*.png`, `fdd_comparison_first_singular_value.png` | `plot_fdd.py`, `plot_all_fdd.py` | Identified building modes, including aligned 9-channel FDD cases |
 | `results/bandpass_matrix/psd_*.png` | `apply_bandpass_matrix.py` | Before/after a mode is isolated |
 | `results/bandpass/psd_before_after_*.png`, `time_preview_*.png` | `apply_bandpass_modes.py` | Filter check plots |
 | `results/rdt/rdt_decay_*.png` | `estimate_damping_rdt.py` | The decay curve fitted for damping |

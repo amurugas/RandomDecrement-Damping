@@ -100,11 +100,9 @@ than mixed across the offset. The synchronized groups in use are:
 ```
 
 These groups are defined per dataset in `DATASETS[...]["sync_groups"]`
-(`L21_L25_6sync` and `L25_3sync`) in `src/config.py`, and as the `CASES` list in
-`scripts/plot_all_fdd.py`. Note that the `L25_3sync` key is named for historical
-reasons but actually holds the Level 29/Roof channels (`29S2X`, `29S2Y`, `29S3X`).
-Combining all nine channels into a single FDD case requires explicit time
-alignment across the start-time offset first.
+(`L21_L25_6sync` and `L29_roof_3sync`) in `src/config.py`; the historical
+`L25_3sync` alias remains for compatibility. `scripts/plot_all_fdd.py` now uses
+those config groups and includes explicit time-aligned nine-channel FDD cases.
 
 ## Library modules (`src/`)
 
@@ -225,4 +223,5 @@ The code targets Python 3 and relies on `numpy`, `scipy`, `pandas`, and
 1. Confirm the dominant measured mode for each dataset from `results/fdd_peak_summary.csv`.
 2. Tighten bandpass widths using the sensitivity results.
 3. Validate damping estimates across channels and dates.
-4. Time-align the roof (Level 29) sensors and repeat FDD with all 9 channels.
+4. Review the time-aligned 9-channel FDD output against the separate sync-group
+   FDD results.

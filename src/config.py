@@ -86,6 +86,8 @@ DATASETS = {
         "wind_folder": Path("data/2023-03-01/Wind Sensor"),
         "wind_file": Path("data/2023-03-01/Wind Sensor/08N4S-20230301_005350.txt"),
         "sync_groups": {
+            "L29_roof_3sync": ["29S2X", "29S2Y", "29S3X"],
+            # Historical alias kept for existing scripts/notebooks.
             "L25_3sync": ["29S2X", "29S2Y", "29S3X"],
             "L21_L25_6sync": ["21S2X", "21S2Y", "21S3X", "25S2X", "25S2Y", "25S3X"],
         },
@@ -95,6 +97,8 @@ DATASETS = {
         "wind_folder": Path("data/2025-12-27/Wind Sensor"),
         "wind_file": Path("data/2025-12-27/Wind Sensor/31S4S-20251227_000722.txt"),
         "sync_groups": {
+            "L29_roof_3sync": ["29S2X", "29S2Y", "29S3X"],
+            # Historical alias kept for existing scripts/notebooks.
             "L25_3sync": ["29S2X", "29S2Y", "29S3X"],
             "L21_L25_6sync": ["21S2X", "21S2Y", "21S3X", "25S2X", "25S2Y", "25S3X"],
         },
