@@ -18,7 +18,6 @@ PROCESSED_DIR = Path("data/processed")
 WIND_SUMMARY_FILE = Path("results/wind/wind_summary_all.csv")
 OUT_DIR = Path("results/windowed_damping")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-MPH_PER_MPS = 2.2369362920544
 
 WINDOW_SECONDS = 30 * 60
 TARGET_FS = 10.0
@@ -213,18 +212,18 @@ def process_bandpassed_file(npz_path, wind):
                 "wind_max_raw_roof_m_s": row.get("wind_max_raw_roof_m_s", np.nan),
                 "wind_std_roof_m_s": row.get("wind_std_roof_m_s", np.nan),
                 "wind_3s_gust_roof_m_s": row.get("wind_3s_gust_roof_m_s", np.nan),
-                "wind_mean_roof_mph": row.get("wind_mean_roof_m_s", np.nan) * MPH_PER_MPS,
-                "wind_3s_gust_roof_mph": row.get("wind_3s_gust_roof_m_s", np.nan) * MPH_PER_MPS,
-                "wind_max_raw_roof_mph": row.get("wind_max_raw_roof_m_s", np.nan) * MPH_PER_MPS,
+                "wind_mean_roof_mph": row.get("wind_mean_roof_mph", np.nan),
+                "wind_3s_gust_roof_mph": row.get("wind_3s_gust_roof_mph", np.nan),
+                "wind_max_raw_roof_mph": row.get("wind_max_raw_roof_mph", np.nan),
                 # Height-corrected to 10 m (preferred for damping-vs-wind).
                 "wind_mean_10m_m_s": row.get("wind_mean_10m_m_s", np.nan),
                 "wind_median_10m_m_s": row.get("wind_median_10m_m_s", np.nan),
                 "wind_max_raw_10m_m_s": row.get("wind_max_raw_10m_m_s", np.nan),
                 "wind_std_10m_m_s": row.get("wind_std_10m_m_s", np.nan),
                 "wind_3s_gust_10m_m_s": row.get("wind_3s_gust_10m_m_s", np.nan),
-                "wind_mean_10m_mph": row.get("wind_mean_10m_m_s", np.nan) * MPH_PER_MPS,
-                "wind_3s_gust_10m_mph": row.get("wind_3s_gust_10m_m_s", np.nan) * MPH_PER_MPS,
-                "wind_max_raw_10m_mph": row.get("wind_max_raw_10m_m_s", np.nan) * MPH_PER_MPS,
+                "wind_mean_10m_mph": row.get("wind_mean_10m_mph", np.nan),
+                "wind_3s_gust_10m_mph": row.get("wind_3s_gust_10m_mph", np.nan),
+                "wind_max_raw_10m_mph": row.get("wind_max_raw_10m_mph", np.nan),
                 "wind_n_samples": row.get("n_samples", np.nan),
                 "quality_flag": quality_flag,
             }

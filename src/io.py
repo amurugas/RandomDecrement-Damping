@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 import numpy as np
 
+from src.wind import correct_to_reference_height, mps_to_mph
+
 def read_sensor_metadata(path):
     path = Path(path)
     metadata = {}
@@ -100,6 +102,8 @@ def read_wind_file(path, nrows=None):
     df : DataFrame with:
         time_sec
         wind_m_s
+        wind_ref_m_s
+        wind_ref_mph
         timestamp
     """
     path = Path(path)
@@ -113,6 +117,12 @@ def read_wind_file(path, nrows=None):
         nrows=nrows,
         engine="python",
     )
+
+    # Apply the reference-height correction and unit conversion once, here at
+    # the point where the raw wind record is consumed. Downstream code should
+    # use these columns rather than re-deriving the conversion or profile.
+    df["wind_ref_m_s"] = correct_to_reference_height(df["wind_m_s"])
+    df["wind_ref_mph"] = mps_to_mph(df["wind_ref_m_s"])
 
     start_dt = parse_start_datetime(meta)
 

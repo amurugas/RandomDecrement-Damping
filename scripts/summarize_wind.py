@@ -7,12 +7,16 @@ import matplotlib.pyplot as plt
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.io import read_wind_file
+from src.wind import (
+    ANEMOMETER_HEIGHT_M,
+    REFERENCE_HEIGHT_M,
+    WIND_PROFILE_EXPONENT,
+    height_correction_factor,
+    mps_to_mph,
+)
 
-# Wind sensor / profile constants.
-SENSOR_HEIGHT_M = 118.0
-REFERENCE_HEIGHT_M = 10.0
-WIND_PROFILE_ALPHA = 0.14
-MPH_PER_MPS = 2.2369362920544
+# Gust averaging window. Wind unit conversion and the reference-height
+# correction live in ``src.wind`` and are applied in ``read_wind_file``.
 GUST_AVERAGING_SECONDS = 3.0
 
 WIND_FILES = [
@@ -23,16 +27,6 @@ WIND_FILES = [
 
 OUT_DIR = Path("results/wind")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def height_correct_to_reference(speed, sensor_height_m, reference_height_m, alpha):
-    """
-    Convert a wind speed measured at ``sensor_height_m`` to the equivalent
-    speed at ``reference_height_m`` using a power-law (Exposure C) profile.
-
-        V_ref = V_sensor * (reference_height_m / sensor_height_m) ** alpha
-    """
-    return speed * (reference_height_m / sensor_height_m) ** alpha
 
 
 def summarize_file(file_path, window="30min"):
@@ -46,9 +40,13 @@ def summarize_file(file_path, window="30min"):
 
     df = df.set_index("timestamp")
 
-    # Rolling 3-second average wind speed from the raw (roof-level) signal.
+    # Rolling 3-second average wind speed, computed for both the raw
+    # (roof-level) signal and the reference-height-corrected signal.
     df["wind_3s_avg_roof_m_s"] = (
         df["wind_m_s"].rolling(window=gust_window_samples, min_periods=1).mean()
+    )
+    df["wind_3s_avg_10m_m_s"] = (
+        df["wind_ref_m_s"].rolling(window=gust_window_samples, min_periods=1).mean()
     )
 
     grouped = df.resample(window)
@@ -61,50 +59,44 @@ def summarize_file(file_path, window="30min"):
         n_samples="count",
     )
 
+    # Reference-height-corrected statistics, aggregated from wind_ref_m_s.
+    ref = grouped["wind_ref_m_s"].agg(
+        wind_mean_10m_m_s="mean",
+        wind_median_10m_m_s="median",
+        wind_max_raw_10m_m_s="max",
+        wind_std_10m_m_s="std",
+    )
+    summary = summary.join(ref)
+
     # 3-second gust is the peak rolling 3-second average within each window.
     summary["wind_3s_gust_roof_m_s"] = grouped["wind_3s_avg_roof_m_s"].max()
+    summary["wind_3s_gust_10m_m_s"] = grouped["wind_3s_avg_10m_m_s"].max()
 
     summary = summary.reset_index()
 
     summary["dataset"] = meta["Start_date"]
     summary["channel"] = meta["channel"]
     summary["window"] = window
-    summary["sensor_height_m"] = SENSOR_HEIGHT_M
+    summary["anemometer_height_m"] = ANEMOMETER_HEIGHT_M
     summary["reference_height_m"] = REFERENCE_HEIGHT_M
-    summary["wind_profile_alpha"] = WIND_PROFILE_ALPHA
-
-    # Height-correct each roof-level statistic to the 10 m reference height.
-    roof_to_10m = [
-        ("wind_mean_roof_m_s", "wind_mean_10m_m_s"),
-        ("wind_median_roof_m_s", "wind_median_10m_m_s"),
-        ("wind_max_raw_roof_m_s", "wind_max_raw_10m_m_s"),
-        ("wind_std_roof_m_s", "wind_std_10m_m_s"),
-        ("wind_3s_gust_roof_m_s", "wind_3s_gust_10m_m_s"),
-    ]
-    for roof_col, ref_col in roof_to_10m:
-        summary[ref_col] = height_correct_to_reference(
-            summary[roof_col],
-            SENSOR_HEIGHT_M,
-            REFERENCE_HEIGHT_M,
-            WIND_PROFILE_ALPHA,
-        )
+    summary["wind_profile_exponent"] = WIND_PROFILE_EXPONENT
 
     # Convenient mph columns for both roof and 10 m corrected speeds.
-    summary["wind_mean_roof_mph"] = summary["wind_mean_roof_m_s"] * MPH_PER_MPS
-    summary["wind_3s_gust_roof_mph"] = summary["wind_3s_gust_roof_m_s"] * MPH_PER_MPS
-    summary["wind_max_raw_roof_mph"] = summary["wind_max_raw_roof_m_s"] * MPH_PER_MPS
-    summary["wind_mean_10m_mph"] = summary["wind_mean_10m_m_s"] * MPH_PER_MPS
-    summary["wind_3s_gust_10m_mph"] = summary["wind_3s_gust_10m_m_s"] * MPH_PER_MPS
-    summary["wind_max_raw_10m_mph"] = summary["wind_max_raw_10m_m_s"] * MPH_PER_MPS
+    summary["wind_mean_roof_mph"] = mps_to_mph(summary["wind_mean_roof_m_s"])
+    summary["wind_3s_gust_roof_mph"] = mps_to_mph(summary["wind_3s_gust_roof_m_s"])
+    summary["wind_max_raw_roof_mph"] = mps_to_mph(summary["wind_max_raw_roof_m_s"])
+    summary["wind_mean_10m_mph"] = mps_to_mph(summary["wind_mean_10m_m_s"])
+    summary["wind_3s_gust_10m_mph"] = mps_to_mph(summary["wind_3s_gust_10m_m_s"])
+    summary["wind_max_raw_10m_mph"] = mps_to_mph(summary["wind_max_raw_10m_m_s"])
 
     column_order = [
         "timestamp",
         "dataset",
         "channel",
         "window",
-        "sensor_height_m",
+        "anemometer_height_m",
         "reference_height_m",
-        "wind_profile_alpha",
+        "wind_profile_exponent",
         "wind_mean_roof_m_s",
         "wind_median_roof_m_s",
         "wind_max_raw_roof_m_s",
@@ -159,12 +151,18 @@ def plot_summary(summary, name):
 
 
 def main():
-    correction_factor = (REFERENCE_HEIGHT_M / SENSOR_HEIGHT_M) ** WIND_PROFILE_ALPHA
-    print(
-        "Height correction factor, "
-        f"{SENSOR_HEIGHT_M:.0f} m to {REFERENCE_HEIGHT_M:.0f} m, "
-        f"alpha={WIND_PROFILE_ALPHA}: {correction_factor:.6f}"
-    )
+    correction_factor = height_correction_factor()
+    if ANEMOMETER_HEIGHT_M is None or REFERENCE_HEIGHT_M is None:
+        print(
+            "Height correction disabled (heights unset); "
+            f"factor={correction_factor:.6f} (identity)"
+        )
+    else:
+        print(
+            "Height correction factor, "
+            f"{ANEMOMETER_HEIGHT_M:.0f} m to {REFERENCE_HEIGHT_M:.0f} m, "
+            f"exponent={WIND_PROFILE_EXPONENT}: {correction_factor:.6f}"
+        )
 
     all_summaries = []
 
