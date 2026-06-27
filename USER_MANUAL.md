@@ -131,7 +131,14 @@ filters — a way to judge confidence in the number.
 **Scripts:** `summarize_wind.py`, `estimate_windowed_damping.py`,
 `analyze_wind_damping_trend.py`
 Summarizes the wind record, estimates damping in rolling 30-minute windows, and
-plots how damping trends with wind speed.
+plots how damping trends with wind speed. Wind speed is read in m/s and reported
+in mph.
+
+> **Optional — correct wind to a reference height.** By default the wind speed is
+> used exactly as measured. If you know the anemometer height and want speeds
+> translated to a different reference height (for example roof height), open
+> `src/wind.py` and set `ANEMOMETER_HEIGHT_M` and `REFERENCE_HEIGHT_M`. The
+> correction then applies automatically everywhere — no other file needs editing.
 
 ### Utility / spot-check scripts
 - `filenames.py` — prints the channel, date, and start time stored inside a set

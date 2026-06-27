@@ -57,28 +57,61 @@ level and component, e.g. `21S2X` is Level 21, sensor 2, X component.
 ### Wind sensor
 
 Each dataset also includes a wind-speed record with the same metadata layout and a
-`Time:sec  <channel>,m/s` data header. Wind speed is read in `m/s`; some scripts
-convert to mph for reporting.
+`Time:sec  <channel>,m/s` data header. Wind speed is read in `m/s`. All wind-speed
+unit conversion and the optional reference-height correction are centralized in
+`src/wind.py` and applied **once**, where the raw record is consumed in
+`src.io.read_wind_file`. Downstream scripts read the resulting columns rather than
+re-deriving the conversion or profile.
+
+`read_wind_file` returns a DataFrame with:
+
+| Column | Meaning |
+| --- | --- |
+| `wind_m_s` | Raw measured wind speed at the anemometer height (m/s). |
+| `wind_ref_m_s` | Wind speed corrected to the reference height (m/s); identical to `wind_m_s` until the heights are configured. |
+| `wind_ref_mph` | Reference-height wind speed converted to mph. |
+| `timestamp` | Absolute time of each sample, from the file's start date/time. |
+
+#### Reference-height correction
+
+`src/wind.py` exposes the exact `MPH_PER_MPS` factor plus a power-law (e.g. ASCE
+Exposure C) wind-profile correction:
+
+```text
+V_ref = V_meas * (REFERENCE_HEIGHT_M / ANEMOMETER_HEIGHT_M) ** WIND_PROFILE_EXPONENT
+```
+
+`ANEMOMETER_HEIGHT_M` and `REFERENCE_HEIGHT_M` default to `None`, so the correction
+is the identity (factor `1.0`) and existing results are unchanged. Setting both
+heights in `src/wind.py` activates the correction everywhere the centralized
+helpers (`mps_to_mph`, `correct_to_reference_height`, `height_correction_factor`)
+are used — no other file needs to change.
 
 ## Sensor strategy
 
 Sensors are located at Levels 21, 25, and 29/Roof. The Level 29 sensors start
-about 30 minutes later than the Level 21 and Level 25 sensors, so they are not
-included in the synchronized CSD/FDD calculations (CSD requires synchronized
-channels). The synchronized groups in use are:
+about 30 minutes later than the Level 21 and Level 25 sensors. Because CSD/FDD
+requires synchronized channels, sensors are grouped by common start time rather
+than mixed across the offset. The synchronized groups in use are:
 
 ```text
-6 sensors: 21S2X, 21S2Y, 21S3X, 25S2X, 25S2Y, 25S3X
-3 sensors: 25S2X, 25S2Y, 25S3X
+6 sensors (L21 + L25, common start): 21S2X, 21S2Y, 21S3X, 25S2X, 25S2Y, 25S3X
+3 sensors (L29/Roof, later common start): 29S2X, 29S2Y, 29S3X
 ```
 
-Roof sensors can be added later after explicit time alignment.
+These groups are defined per dataset in `DATASETS[...]["sync_groups"]`
+(`L21_L25_6sync` and `L25_3sync`) in `src/config.py`, and as the `CASES` list in
+`scripts/plot_all_fdd.py`. Note that the `L25_3sync` key is named for historical
+reasons but actually holds the Level 29/Roof channels (`29S2X`, `29S2Y`, `29S3X`).
+Combining all nine channels into a single FDD case requires explicit time
+alignment across the start-time offset first.
 
 ## Library modules (`src/`)
 
 | Module | Purpose |
 | --- | --- |
-| `io.py` | Read accelerometer and wind files. `read_sensor_metadata`, `read_sensor_file` (returns `meta`, `DataFrame` with `time_sec`, `accel_cm_s2`, `accel_m_s2`), `read_sensor_sample`, `parse_start_datetime`, and `read_wind_file` (returns `time_sec`, `wind_m_s`, `timestamp`). |
+| `io.py` | Read accelerometer and wind files. `read_sensor_metadata`, `read_sensor_file` (returns `meta`, `DataFrame` with `time_sec`, `accel_cm_s2`, `accel_m_s2`), `read_sensor_sample`, `parse_start_datetime`, and `read_wind_file` (returns `time_sec`, `wind_m_s`, `wind_ref_m_s`, `wind_ref_mph`, `timestamp`). |
+| `wind.py` | Centralized wind-speed handling: the exact `MPH_PER_MPS` factor, `mps_to_mph`, and the power-law reference-height correction (`height_correction_factor`, `correct_to_reference_height`). Conversion and height profile are defined once and applied once, in `io.read_wind_file`. |
 | `filtering.py` | `bandpass_filter` — zero-phase Butterworth bandpass (`sosfiltfilt`) to isolate a single mode. |
 | `fdd.py` | `build_csd_matrix` builds the cross-spectral density matrix `G(f)` via Welch CSD; `compute_fdd` runs an SVD at each frequency line to return singular values and mode shapes. |
 | `rdt.py` | `random_decrement_signature` — Random Decrement Signature from positive level upcrossings, producing a free-decay-like signal. Pass `return_segments=True` to also get the individual averaged traces and their trigger sample indices. |
