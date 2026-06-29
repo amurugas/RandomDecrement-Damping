@@ -1,1 +1,12 @@
 /data/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE / editor settings
+.idea/
+.vscode/
+
+# Archives
+*.zip

@@ -22,8 +22,10 @@ notebooks/  Exploratory Jupyter notebooks
 
 Scripts are intended to be run from the repository root (each script appends the
 repo root to `sys.path` so that `from src... import ...` works). All scripts read
-from `data/` and write figures and CSV summaries into `results/`. Both
-directories are created on demand and are not tracked in the repository.
+from `data/` and write figures and CSV summaries into `results/`. The `data/`
+directory is created on demand and is not tracked in the repository; `results/`
+is created on demand and holds the generated figures and tables (a set of example
+outputs is committed for reference).
 
 ## Data
 
@@ -114,6 +116,7 @@ those config groups and includes explicit time-aligned nine-channel FDD cases.
 | `fdd.py` | `build_csd_matrix` builds the cross-spectral density matrix `G(f)` via Welch CSD; `compute_fdd` runs an SVD at each frequency line to return singular values and mode shapes. |
 | `rdt.py` | `random_decrement_signature` — Random Decrement Signature from positive level upcrossings, producing a free-decay-like signal. Pass `return_segments=True` to also get the individual averaged traces and their trigger sample indices. |
 | `damping.py` | `fit_exponential_decay` — Hilbert envelope plus exponential fit to estimate the damping ratio (`zeta = alpha / omega_n`) with an R² goodness-of-fit. |
+| `alignment.py` | `align_signal_records` — return equal-length channel arrays either by simple truncation or by wall-clock overlap, used to time-align channels with different start times before CSD/FDD. `SignalRecord` carries a channel's samples, sampling rate, and start time. |
 | `config.py` | Central configuration: `DATASETS`, ETABS reference modes (`ETABS_MODES`), measured modes (`MEASURED_MODES`), and bandpass case tables (`BANDPASS_SENSITIVITY`, `ETABS_BANDPASS_CASES`). |
 
 `preprocessing.py` and `spectral.py` are placeholders reserved for future use.
