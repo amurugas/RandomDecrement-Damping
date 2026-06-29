@@ -48,8 +48,9 @@ into the `results/` folder.
       └─ Wind Sensor/
    ```
 
-   The `data/` and `results/` folders are created automatically when needed and
-   are **not** stored in the repository — they hold your own data and output.
+   The `data/` folder is created automatically when needed and is **not** stored
+   in the repository — it holds your own raw data. The `results/` folder holds the
+   output figures and tables (a set of example outputs is included for reference).
 
 3. **Run everything from the project's top folder** (the one that contains
    `src/`, `scripts/`, and `Readme.md`). For example:
